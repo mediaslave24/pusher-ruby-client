@@ -60,17 +60,23 @@ module PusherClient
       PusherClient.logger.debug("Pusher : connecting : #{url}")
 
       @connection_thread = Thread.new {
-        options     = {:ssl => @encrypted, :cert_file => @cert_file, :ssl_verify => @ssl_verify}
-        @connection = PusherWebSocket.new(url, options)
-        PusherClient.logger.debug "Websocket connected"
+        begin
+          options     = {:ssl => @encrypted, :cert_file => @cert_file, :ssl_verify => @ssl_verify}
+          @connection = PusherWebSocket.new(url, options)
+          PusherClient.logger.debug "Websocket connected"
 
-        loop do
-          msg    = @connection.receive[0]
-          next if msg.nil?
-          params = parser(msg)
-          next if params['socket_id'] && params['socket_id'] == self.socket_id
+          loop do
+            msg    = @connection.receive[0]
+            next if msg.nil?
+            params = parser(msg)
+            next if params['socket_id'] && params['socket_id'] == self.socket_id
 
-          send_local_event params['event'], params['data'], params['channel']
+            send_local_event params['event'], params['data'], params['channel']
+          end
+        rescue => ex
+          PusherClient.logger.debug("Pusher : connection error : #{ex}")
+          raise unless async
+          send_local_event 'pusher:error', ex
         end
       }
 

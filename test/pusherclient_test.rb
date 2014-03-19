@@ -152,6 +152,20 @@ describe "A PusherClient::Socket" do
       @socket.connected.should.equal false
     end
 
+    it 'should reconnect if pusher:error triggered with code 4200..4299' do
+      connection1 = @socket.connection
+      @socket.simulate_received('pusher:error', {'code' => 4200, 'message' => 'Should reconnect'}, nil)
+      @socket.connection.should.not.equal connection1
+    end
+
+    it 'should reconnect with delay if pusher:error triggered with code 4100..4199' do
+      connection1 = @socket.connection
+      t1 = Time.now
+      @socket.simulate_received('pusher:error', {'code' => 4100, 'message' => 'Should reconnect'}, nil)
+      (Time.now - t1).should.satisfy { |time| time >= 1 }
+      @socket.connection.should.not.equal connection1
+    end
+
     describe "when subscribed to a channel" do
       before do
         @channel = @socket.subscribe('testchannel')

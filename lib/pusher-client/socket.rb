@@ -28,6 +28,7 @@ module PusherClient
       @ws_port = options[:ws_port] || WS_PORT
       @wss_port = options[:wss_port] || WSS_PORT
       @ssl_verify = options.fetch(:ssl_verify) { true }
+      @async = options[:async]
 
       bind('pusher:connection_established') do |data|
         socket = parser(data)
@@ -42,6 +43,7 @@ module PusherClient
 
       bind('pusher:error') do |data|
         PusherClient.logger.fatal("Pusher : error : #{data.inspect}")
+        handle_error(data)
       end
 
       # Keep this in case we're using a websocket protocol that doesn't
@@ -51,7 +53,11 @@ module PusherClient
       end
     end
 
-    def connect(async = false)
+    def connect(async = nil)
+      if !(@async == nil) && async == nil
+        async = @async
+      end
+
       if @encrypted
         url = "wss://#{@ws_host}:#{@wss_port}#{@path}"
       else
@@ -77,6 +83,25 @@ module PusherClient
       @connection_thread.run
       @connection_thread.join unless async
       self
+    end
+
+    def reconnect(async = false)
+      disconnect if connected
+      connect(async)
+    end
+
+    def handle_error(data)
+      code, message = data['code'], data['message'] if data.is_a?(Hash)
+      message ||= data.inspect
+
+      if (4100..4199).include?(code)
+        sleep 1
+        reconnect
+      elsif (4200..4299).include?(code)
+        reconnect
+      else
+        raise StandardError, "Pusher error: %s (code: %s)" % [message, code].map(&:to_s)
+      end
     end
 
     def disconnect

@@ -20,6 +20,8 @@ module PusherClient
   end
 
   class Socket
+    attr_reader :connection
+
     # Simulate a connection being established
     def connect(async = false)
       @connection_thread = Thread.new do
@@ -46,5 +48,4 @@ module PusherClient
   end
 
   PusherClient.logger = TestLogger.new('test.log')
-
 end
